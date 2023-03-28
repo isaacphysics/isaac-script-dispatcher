@@ -1,0 +1,9 @@
+.env
+
+# Python library cache
+venv
+venv/*
+
+__pycache__
+src/__pycache__
+scripts/__pycache__
