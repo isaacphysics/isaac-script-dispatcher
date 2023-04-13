@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import logging
 import os
 import re
@@ -11,8 +13,8 @@ from constants import *
 
 app = Flask(__name__)
 
-# --- Validation ---
 
+# --- Validation ---
 
 def validate_job_id(job_id: str):
     # UUID v4 regex, see https://stackoverflow.com/a/13653180
@@ -21,6 +23,14 @@ def validate_job_id(job_id: str):
 
 def validate_script_name(script_name: str):
     return script_name and re.match("[a-z_]", script_name)
+
+
+def verify_signature(payload, signature):
+    secret = os.getenv("GITHUB_WEBHOOK_SECRET")
+    if not secret:
+        raise Exception("GITHUB_WEBHOOK_SECRET is not set!")
+    computed_signature = "sha256=" + hmac.new(secret.encode("utf-8"), payload, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(computed_signature, signature)
 
 
 # --- API endpoints ---
@@ -36,7 +46,7 @@ def enqueue():
     if not validate_script_name(script_name):
         return jsonify({"error": "Script name is malformed"}), 400
 
-    job_id = enqueue_job(JobType.SCRIPT, script_name)
+    job_id = enqueue_job(JobType.SCRIPT, data={"script_name": script_name})
 
     return jsonify({"message": "Script job added to queue", "job_id": job_id})
 
@@ -59,13 +69,14 @@ def status(job_id):
             "status": job_info["status"],
             "script_name": job_info["script_name"]
         }
-    elif job_info["job_type"] == JobType.REFRESH:
-        response = {
-            "type": job_info["job_type"],
-            "status": job_info["status"]
-        }
     else:
-        return jsonify({"error": "Invalid job type"}), 500
+        try:
+            response = {
+                "type": job_info["job_type"],
+                "status": job_info["status"]
+            }
+        except KeyError:
+            return jsonify({"error": "Invalid job type"}), 500
 
     # Add result if job is finished, or error if job failed
     if job_info["status"] == JobRunStatus.FINISHED:
@@ -130,12 +141,32 @@ def list_scripts():
     return jsonify(get_all_script_info(app.logger))
 
 
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    # Verify signature to ensure it's from GitHub
+    request_signature = request.headers.get("X-Hub-Signature-256")
+    if not request_signature or not verify_signature(request.data, request_signature):
+        return jsonify({"error": "Invalid signature"}), 403
+
+    if not request.is_json:
+        return jsonify({"error": "Invalid request format"}), 400
+
+    json = request.get_json()
+    if "issue" not in json:
+        return jsonify({"error": "Invalid request format"}), 400
+
+    if json["action"] == "opened":
+        app.logger.info(f"New issue opened: {json['issue']['number']}")
+        enqueue_job(JobType.NEW_ISSUE, data={"issue_number": json["issue"]["number"]})
+
+    return jsonify({"message": "Webhook received"})
+
+
 # --- Error handling ---
 
 def _make_json_error(ex):
-    """Return JSON error pages, not HTML!
-       Using a method suggested in http://flask.pocoo.org/snippets/83/, convert
-       all outgoing errors into JSON format.
+    """
+    Convert all outgoing errors into JSON format.
     """
     status_code = ex.code if isinstance(ex, HTTPException) else 500
     response = jsonify(message=str(ex), code=status_code, error=type(ex).__name__)

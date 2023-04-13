@@ -4,5 +4,6 @@ set -e
 
 source .env
 export SSH_PRIVATE_KEY="$(cat "$GIT_HUB_SSH_KEY_PATH")"
+export APP_PRIVATE_KEY="$(cat "$APP_PRIVATE_KEY_PATH")"
 
-docker-compose up --build
+docker-compose -f docker-compose.yml up --build

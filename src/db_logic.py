@@ -44,28 +44,33 @@ def init_db():
         wait_duration DATETIME DEFAULT NULL
     )
     ''')
+    c.execute('''
+    CREATE TABLE IF NOT EXISTS app_token (
+        token TEXT PRIMARY KEY,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        expires_at DATETIME DEFAULT NULL
+    )
+    ''')
     conn.commit()
     conn.close()
 
 
-def enqueue_job(job_type, script_name=None):
+def enqueue_job(job_type, data=None):
     job_id = generate_unique_job_id()
-
     conn = sqlite3.connect(JOB_DB_PATH)
     c = conn.cursor()
-    if job_type is JobType.SCRIPT:
+    if data is None:
+        c.execute('''
+        INSERT INTO job_queue (id, job_type, status)
+        VALUES (?, ?, ?, ?)
+        ''', (job_id, job_type, JobRunStatus.PENDING))
+    else:
         c.execute('''
         INSERT INTO job_queue (id, job_type, status, job_data)
         VALUES (?, ?, ?, ?)
-        ''', (job_id, job_type, JobRunStatus.PENDING, json.dumps({"script_name": script_name})))
-    elif job_type is JobType.REFRESH:
-        c.execute('''
-        INSERT INTO job_queue (id, job_type, status)
-        VALUES (?, ?, ?)
-        ''', (job_id, job_type, JobRunStatus.PENDING))
+        ''', (job_id, job_type, JobRunStatus.PENDING, json.dumps(data)))
     conn.commit()
     conn.close()
-
     return job_id
 
 
@@ -156,3 +161,31 @@ def get_job_count():
     result = c.fetchone()
     conn.close()
     return result[0]
+
+
+# --- Token management ---
+
+def save_token(token, created_at, expires_at):
+    conn = sqlite3.connect(JOB_DB_PATH)
+    c = conn.cursor()
+    c.execute('''
+    DELETE FROM app_token
+    ''')
+    c.execute('''
+    INSERT INTO app_token (token, created_at, expires_at)
+    VALUES (?, ?, ?)
+    ''', (token, created_at, expires_at))
+    conn.commit()
+    conn.close()
+
+
+def get_token():
+    conn = sqlite3.connect(JOB_DB_PATH)
+    c = conn.cursor()
+    c.execute('''
+    SELECT token, created_at, expires_at
+    FROM app_token
+    ''')
+    result = c.fetchone()
+    conn.close()
+    return result

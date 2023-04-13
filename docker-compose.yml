@@ -7,6 +7,11 @@ services:
       context: .
       args:
         SSH_PRIVATE_KEY: ${SSH_PRIVATE_KEY}
+        APP_PRIVATE_KEY: ${APP_PRIVATE_KEY}
+        GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET}
+        GITHUB_API_SECRET: ${GITHUB_API_SECRET}
+        GITHUB_APP_IDENTIFIER: ${GITHUB_APP_IDENTIFIER}
+        GITHUB_INSTALLATION_ID: ${GITHUB_INSTALLATION_ID}
     image: isaac-script-dispatcher
     ports:
       - "5000:5000"
