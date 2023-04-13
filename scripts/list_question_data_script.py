@@ -5,9 +5,9 @@
 """
 
 # These import paths need to be prepended by "scripts." for the script_manager to work
-from scripts.arguments import base_parser
-from scripts.helper_functions import build_csv_from_content, value_or_default
-from scripts.constants import CONTENT_BASE_PATH, OUT_DIR_PATH
+from arguments import base_parser
+from helper_functions import build_csv_from_content, value_or_default
+from constants import CONTENT_BASE_PATH, OUT_DIR_PATH
 
 CONTENT_PATH = f"{CONTENT_BASE_PATH}/questions"
 
@@ -23,8 +23,6 @@ def json_handler(decoded_json, path_fragment, page_id, write_to_csv):
     if value_or_default(decoded_json, "type", None) not in content_type_name_map:
         # only process relevant json types
         return
-
-    print(f"Processing {path_fragment}...")
     write_to_csv([
         path_fragment,
         page_id,

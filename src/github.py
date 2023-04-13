@@ -1,3 +1,4 @@
+import base64
 import os
 import time
 import jwt
@@ -52,6 +53,53 @@ def get_github_token(logger=(lambda x: None)):
         return token["token"]
     else:
         return db_token[0]
+
+
+# --- Issue management ---
+
+def add_reaction_to_issue(token, issue_number, reaction):
+    url = f"https://api.github.com/repos/{REPO_PATH}/issues/{issue_number}/reactions"
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    data = {"content": reaction}
+
+    return requests.post(url, headers=headers, json=data)
+
+
+def add_comment_to_issue(token, issue_number, comment):
+    url = f"https://api.github.com/repos/{REPO_PATH}/issues/{issue_number}/comments"
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    data = {"body": comment}
+    return requests.post(url, headers=headers, json=data)
+
+
+def upload_file_to_github(token, issue_number, file_path):
+    file_name = f"{issue_number}-{os.path.basename(file_path)}"
+    # Read file contents (base64 encoded)
+    with open(file_path, "rb") as f:
+        file_contents = f.read()
+
+    url = f"https://api.github.com/repos/{REPO_PATH}/contents/outputs/{file_name}"
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    data = {
+        "message": f"Output file for issue {issue_number}",
+        "content": base64.b64encode(file_contents).decode(),
+        "branch": "master",
+        "committer": {"name": "isaac-script-dispatcher", "email": "33040507+chrisjpurdy@users.noreply.github.com"}
+    }
+
+    return requests.put(url, headers=headers, json=data)
 
 
 # --- Content repository management ---

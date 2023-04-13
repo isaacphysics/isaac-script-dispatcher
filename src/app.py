@@ -141,6 +141,10 @@ def list_scripts():
     return jsonify(get_all_script_info(app.logger))
 
 
+# --- Webhook endpoint ---
+# The only one that really matters, the rest are just for testing and admin purposes. This should be the only one
+# that's exposed to the internet.
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
     # Verify signature to ensure it's from GitHub
@@ -156,8 +160,13 @@ def webhook():
         return jsonify({"error": "Invalid request format"}), 400
 
     if json["action"] == "opened":
-        app.logger.info(f"New issue opened: {json['issue']['number']}")
-        enqueue_job(JobType.NEW_ISSUE, data={"issue_number": json["issue"]["number"]})
+        # Extract script name from issue body
+        script_name = re.sub(r"#*\s?Script name\n*", "", json["issue"]["body"].strip())
+        app.logger.info(f"New issue opened: {json['issue']['number']}, script name: {script_name}")
+        enqueue_job(JobType.NEW_ISSUE, data={
+            "issue_number": json["issue"]["number"],
+            "script_name": script_name
+        })
 
     return jsonify({"message": "Webhook received"})
 
