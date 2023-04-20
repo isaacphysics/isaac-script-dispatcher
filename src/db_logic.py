@@ -75,11 +75,9 @@ def enqueue_job(job_type, data=None):
 
 
 def update_job_status(job_id, new_status, data=None):
-    if new_status == JobRunStatus.PENDING:
-        raise ValueError("Cannot set job status to PENDING")
-    elif new_status == JobRunStatus.RUNNING:
+    if new_status == JobRunStatus.RUNNING:
         raise ValueError("Cannot set job status to RUNNING. Use get_next_job instead.")
-    elif new_status == JobRunStatus.FINISHED or new_status == JobRunStatus.FAILED:
+    else:
         conn = sqlite3.connect(JOB_DB_PATH)
         c = conn.cursor()
         c.execute('''
@@ -91,6 +89,19 @@ def update_job_status(job_id, new_status, data=None):
         conn.close()
 
 
+def reset_job(job_id, data=None):
+    conn = sqlite3.connect(JOB_DB_PATH)
+    c = conn.cursor()
+    c.execute('''
+    UPDATE job_queue
+    SET status = ?,  executed_at = NULL, run_duration = NULL, wait_duration = NULL, job_data = json(?), enqueued_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+    ''', (JobRunStatus.PENDING, json.dumps(data if data else {}), job_id))
+    conn.commit()
+    conn.close()
+    return job_id
+
+
 def get_job_info(job_id):
     conn = sqlite3.connect(JOB_DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -100,6 +111,20 @@ def get_job_info(job_id):
     FROM job_queue
     WHERE id = ?
     ''', (job_id,))
+    result = c.fetchone()
+    conn.close()
+    return translate_job_to_dict(result)
+
+
+def get_job_by_issue_number(issue_number):
+    conn = sqlite3.connect(JOB_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute('''
+    SELECT id, job_type, job_data, status, enqueued_at, executed_at, run_duration, wait_duration
+    FROM job_queue
+    WHERE job_type = 'ISSUE' AND json_extract(job_data, '$.issue_number') = ? AND status != 'FINISHED'
+    ''', (issue_number,))
     result = c.fetchone()
     conn.close()
     return translate_job_to_dict(result)

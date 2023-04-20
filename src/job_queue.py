@@ -1,3 +1,4 @@
+import json
 import os
 import signal
 import subprocess
@@ -7,6 +8,7 @@ from multiprocessing import Process
 from db_logic import get_next_job, update_job_status
 from constants import *
 from github import pull_repos, get_github_token, add_reaction_to_issue, add_comment_to_issue, upload_file_to_github
+from script_manager import SCRIPTS
 
 
 # Method to append to debug log file, creating it if it doesn't exist. A fairly robust way to debug the worker process.
@@ -15,24 +17,57 @@ def log_to_file(message):
         f.write(message + "\n")
 
 
-def run_script(script_name, job_id):
+def run_python_script(script_name, job_id, subject, args):
     if not os.path.exists(f"{SCRIPTS_PATH}/{script_name}_script.py"):
         return {"error": f"Script `{script_name}` does not exist"}
 
     try:
         result = subprocess.run(
             [
-                "python", f"{SCRIPTS_PATH}/{script_name}_script.py", "-j", job_id
+                "python", f"{SCRIPTS_PATH}/{script_name}_script.py", "-j", job_id, "--subject", subject, *args
             ],
             capture_output=True,
             check=True,
             text=True,
         )
-        return {"result": result.stdout, "output_file": f"{job_id}.csv"}
+        return {"result": result.stdout}
     except subprocess.CalledProcessError as e:
         return {"error": e.stderr}
     except Exception as e:
         return {"error": str(e)}
+
+
+def run_script_and_close_issue(job, job_id, token):
+    # First pair argument names with values
+    args = [i for j in zip(map(lambda x: f"--{x['param']}", SCRIPTS[job["script_name"]]["arguments"]), job["arguments"]) for i in j]
+    result = run_python_script(job["script_name"], job_id, job["subject"], args)
+    if "error" in result:
+        if comment(token, job_id, job["issue_number"],
+                   f"### Error running script:\n\n> {result['error']}\n\nPlease contact the team for assistance, quoting the job ID: {job_id}"):
+            update_job_status(job_id, JobRunStatus.FAILED, result)
+    else:
+        try:
+            # Upload each output file to GitHub and get the URLs
+            urls = []
+            for f in os.listdir(f"{OUTPUT_PATH}/{job_id}"):
+                response = upload_file_to_github(token, job_id, f"{OUTPUT_PATH}/{job_id}/{f}", f"{job_id}/{f}")
+                response_json = response.json()
+                if not response.status_code == 201 or "html_url" not in response_json["content"]:
+                    if comment(token, job_id, job["issue_number"],
+                               f"### Error running script:\n\n> {response.text}\n\nPlease contact the team for assistance, quoting the job ID: {job_id}"):
+                        update_job_status(job_id, JobRunStatus.FAILED,
+                                          {"error": f"Failed to upload file: {response.text}"})
+                urls.append({"file": f, "url": response_json["content"]["html_url"]})
+
+            # Add output to issue, and add a links to each output file
+            output = f"\n\n```\n{result['result']}\n```" if result["result"] else ""
+            download_urls = "\n\n" + "\n".join([f"- [{url['file']}]({url['url']})" for url in urls])
+            if comment(token, job_id, job["issue_number"], f"### Output{output}{download_urls}"):
+                update_job_status(job_id, JobRunStatus.FINISHED, result)
+        except Exception as e:
+            if comment(token, job_id, job["issue_number"],
+                       f"### Error generating output files:\n\n> {str(e)}\n\nPlease contact the team for assistance, quoting the job ID: {job_id}.\n\nScript output:\n\n```{result['result']}```"):
+                update_job_status(job_id, JobRunStatus.FAILED, {"error": str(e)})
 
 
 def comment(token, job_id, issue_number, message):
@@ -41,6 +76,28 @@ def comment(token, job_id, issue_number, message):
         update_job_status(job_id, JobRunStatus.FAILED, {"error": f"Failed to add comment: {response.text}"})
         return False
     return True
+
+
+def ask_for_script_arguments(job, job_id, script_info, token):
+    # Check which argument we need to ask for next
+    next_arg_index = len(job["arguments"])
+    next_arg = script_info["arguments"][next_arg_index]
+    next_arg_message = f"""
+### Script argument: {next_arg['title']}
+
+{next_arg['description']}
+
+Example:
+```
+{next_arg['example']}
+```
+
+Please reply to this comment with the argument, or delete this issue to cancel the job.
+"""
+
+    # Add a comment to the issue asking for the next argument
+    if comment(token, job_id, job["issue_number"], next_arg_message):
+        update_job_status(job_id, JobRunStatus.PAUSED, {"argument_index": next_arg_index})
 
 
 class GracefulKiller:
@@ -62,46 +119,32 @@ def github_issue_confirm_job(job_id, job):
 
     # Get a GitHub token
     token = get_github_token()  # Can give param logger=log_to_file to debug
-    response = add_reaction_to_issue(token, job["issue_number"], "eyes")
 
-    if not response.status_code == 201:
-        update_job_status(job_id, JobRunStatus.FAILED, {"error": f"Failed to add initial reaction: {response.text}"})
+    # Add a reaction to the issue to show that we've seen it (if it's new)
+    if job["issue_status"] == "opened":
+        response = add_reaction_to_issue(token, job["issue_number"], "rocket")
+        if not response.status_code == 201:
+            update_job_status(job_id, JobRunStatus.FAILED, {"error": f"Failed to add initial reaction: {response.text}"})
+            return
 
-    result = run_script(job["script_name"], job_id)
-    if "error" in result:
-        if comment(token, job["issue_number"], f"### Error running script:\n\n> {result['error']}\n\nPlease contact the team for assistance."):
-            update_job_status(job_id, JobRunStatus.FAILED, result)
+    # Check if the script exists and the subject is valid
+    if job["script_name"] not in SCRIPTS or job["subject"] not in ["phy", "ada"]:
+        if comment(token, job_id, job["issue_number"], f"### Error running script:\n\n> Invalid script name or subject.\n\nPlease delete this issue and contact the team for assistance, quoting the job ID: {job_id}"):
+            update_job_status(job_id, JobRunStatus.FAILED, {"error": "Invalid script name or subject"})
+        return
+
+    script_info = SCRIPTS[job["script_name"]]
+
+    # Accumulate arguments for the script, if needed
+    if len(job["arguments"]) < len(script_info["arguments"]):
+        ask_for_script_arguments(job, job_id, script_info, token)
     else:
-        # Upload the file to GitHub and get the URL
-        response = upload_file_to_github(token, job["issue_number"], f"{OUTPUT_PATH}/{result['output_file']}")
-        response_json = response.json()
-        if not response.status_code == 201 or "download_url" not in response_json["content"]:
-            if comment(token, job_id, job["issue_number"], f"### Error running script:\n\n> {response.text}\n\nPlease contact the team for assistance."):
-                update_job_status(job_id, JobRunStatus.FAILED, {"error": f"Failed to upload file: {response.text}"})
-        # Add output to issue, and add a link to the output file
-        output = f"\n\n```{result['result']}```" if result["result"] else ""
-        if comment(token, job_id, job["issue_number"], f"### Output{output}\n\n[Download output file]({response_json['content']['download_url']})"):
-            update_job_status(job_id, JobRunStatus.FINISHED, result)
-
-
-def refresh_job(job_id, job):
-    # log_to_file(f"Job ID {job_id}: Refreshing content repositories.")
-    pull_repos()
-    update_job_status(job_id, JobRunStatus.FINISHED, {"result": "Refreshed the content repositories"})
-
-
-def script_job(job_id, job):
-    result = run_script(job["script_name"], job_id)
-    if "error" in result:
-        update_job_status(job_id, JobRunStatus.FAILED, result)
-    else:
-        update_job_status(job_id, JobRunStatus.FINISHED, result)
+        # Run the script
+        run_script_and_close_issue(job, job_id, token)
 
 
 JOB_HANDLERS = {
-    JobType.REFRESH: refresh_job,
-    JobType.SCRIPT: script_job,
-    JobType.NEW_ISSUE: github_issue_confirm_job
+    JobType.ISSUE: github_issue_confirm_job
 }
 
 

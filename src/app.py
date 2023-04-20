@@ -4,11 +4,12 @@ import logging
 import os
 import re
 
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify
 from werkzeug.exceptions import HTTPException, default_exceptions
 
-from script_manager import get_all_script_info
-from db_logic import enqueue_job, get_job_info, get_job_count, get_job_ids_by_status
+from script_manager import SCRIPTS
+from db_logic import enqueue_job, get_job_info, get_job_count, get_job_ids_by_status, get_job_by_issue_number, \
+    reset_job, update_job_status
 from constants import *
 
 app = Flask(__name__)
@@ -35,22 +36,6 @@ def verify_signature(payload, signature):
 
 # --- API endpoints ---
 
-@app.route('/enqueue', methods=['POST'])
-def enqueue():
-    if not request.is_json:
-        return jsonify({"error": "Invalid request format"}), 400
-
-    data = request.get_json()
-    script_name = data.get("script_name")
-
-    if not validate_script_name(script_name):
-        return jsonify({"error": "Script name is malformed"}), 400
-
-    job_id = enqueue_job(JobType.SCRIPT, data={"script_name": script_name})
-
-    return jsonify({"message": "Script job added to queue", "job_id": job_id})
-
-
 @app.route('/status/<job_id>', methods=['GET'])
 def status(job_id):
     if not validate_job_id(job_id):
@@ -63,20 +48,13 @@ def status(job_id):
     if not job_info:
         return jsonify({"error": "Cannot locate job with that job_id"}), 404
 
-    if job_info["job_type"] == JobType.SCRIPT:
+    try:
         response = {
             "type": job_info["job_type"],
-            "status": job_info["status"],
-            "script_name": job_info["script_name"]
+            "status": job_info["status"]
         }
-    else:
-        try:
-            response = {
-                "type": job_info["job_type"],
-                "status": job_info["status"]
-            }
-        except KeyError:
-            return jsonify({"error": "Invalid job type"}), 500
+    except KeyError:
+        return jsonify({"error": "Invalid job type"}), 500
 
     # Add result if job is finished, or error if job failed
     if job_info["status"] == JobRunStatus.FINISHED:
@@ -98,33 +76,6 @@ def status(job_id):
     return jsonify(response)
 
 
-@app.route('/download/<job_id>', methods=['GET'])
-def download(job_id):
-    if not validate_job_id(job_id):
-        return jsonify({"error": "Invalid job_id"}), 400
-
-    job_info = get_job_info(job_id)
-
-    if not job_info:
-        return jsonify({"error": "Cannot locate job with that job_id"}), 404
-    if job_info["job_type"] != JobType.SCRIPT:
-        return jsonify({"error": "Job is not a script job"}), 400
-    if job_info["status"] != JobRunStatus.FAILED:
-        return jsonify({"error": "Script job has failed, cannot download output"}), 500
-    if job_info["status"] != JobRunStatus.FINISHED:
-        return jsonify({"error": "Script job is not yet finished"}), 400
-    if job_info["output_file"] is None:
-        return jsonify({"error": "Script job has no output file"}), 400
-
-    return send_file(os.path.join(OUTPUT_PATH, job_info["output_file"]), mimetype='text/csv', download_name=f'{job_id}.csv', as_attachment=True)
-
-
-@app.route('/refresh', methods=['POST'])
-def refresh_repos():
-    job_id = enqueue_job(JobType.REFRESH)
-    return jsonify({"message": "Content repository refresh added to queue", "job_id": job_id})
-
-
 @app.route('/queue-status', methods=['GET'])
 def queue_status():
     return jsonify({
@@ -138,7 +89,7 @@ def queue_status():
 
 @app.route('/list-scripts', methods=['GET'])
 def list_scripts():
-    return jsonify(get_all_script_info(app.logger))
+    return jsonify(SCRIPTS)
 
 
 # --- Webhook endpoint ---
@@ -159,14 +110,65 @@ def webhook():
     if "issue" not in json:
         return jsonify({"error": "Invalid request format"}), 400
 
+    # Debug logging
+    # app.logger.info(json)
+
     if json["action"] == "opened":
         # Extract script name from issue body
-        script_name = re.sub(r"#*\s?Script name\n*", "", json["issue"]["body"].strip())
-        app.logger.info(f"New issue opened: {json['issue']['number']}, script name: {script_name}")
-        enqueue_job(JobType.NEW_ISSUE, data={
+        # Find the word that comes after "### Script name\n"
+        script_name = re.search(r"#*\s?Script name\n*(.*)", json["issue"]["body"]).group(1)
+        site = re.search(r"#*\s?Site\n*(.*)", json["issue"]["body"]).group(1)
+        app.logger.info(f"New issue opened: {json['issue']['number']}, script name: {script_name}, site: {site}")
+        enqueue_job(JobType.ISSUE, data={
             "issue_number": json["issue"]["number"],
-            "script_name": script_name
+            "issue_status": "opened",
+            "script_name": script_name,
+            "subject": "ada" if site == "Ada CS" else "phy",
+            "arguments": [],  # Is incrementally built up by the user over a few jobs in a "conversation" with the bot (if arguments are needed)
         })
+    elif json["action"] == "created":
+        # Ignore comments that this bot
+        if json["comment"]["user"]["login"] == "isaac-script-dispatcher[bot]":
+            return jsonify({"message": "Ignoring comment from this bot"})
+
+        # Find the job that corresponds to this issue
+        job = get_job_by_issue_number(json["issue"]["number"])
+
+        # Check if the comment is a command
+        command_search = re.search(r"^Please (.*)$", json["comment"]["body"])
+        if command_search:
+            command = command_search.group(1).lower()
+            if command in ["run", "rerun", "restart", "re-run", "re-start"]:
+                if job:
+                    # Reset the job
+                    reset_job(job["id"], data={
+                        "issue_number": json["issue"]["number"],
+                        "issue_status": "reset",
+                        "script_name": job["script_name"],
+                        "subject": job["subject"],
+                        "arguments": []
+                    })
+                else:
+                    script_name = re.search(r"#*\s?Script name\n*(.*)", json["issue"]["body"]).group(1)
+                    site = re.search(r"#*\s?Site\n*(.*)", json["issue"]["body"]).group(1)
+                    enqueue_job(JobType.ISSUE, data={
+                        "issue_number": json["issue"]["number"],
+                        "issue_status": "reset",
+                        "script_name": script_name,
+                        "subject": "ada" if site == "Ada CS" else "phy",
+                        "arguments": []
+                    })
+            return jsonify({"message": "Webhook received, command processed"})
+
+        if not job:
+            return jsonify({"error": "Cannot find job with that issue number"}), 404
+
+        # FIXME should check for injection attacks here (see line 27 job_queue.py)
+
+        # Must be an argument, strip the comment body of leading/trailing whitespace, and add it to the job
+        argument = json["comment"]["body"].strip("`\t\n ")
+        # Update the job, adding the argument to the list of arguments
+        update_job_status(job["id"], JobRunStatus.PENDING, data={"arguments": job["arguments"] + [argument]})
 
     return jsonify({"message": "Webhook received"})
 

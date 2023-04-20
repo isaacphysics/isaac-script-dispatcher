@@ -14,6 +14,6 @@ base_parser.add_argument(
     '--subject',
     type=str,
     dest="subject",
-    help='Which subject\'s content to run the script against. Can be either "phy" or "cs". Defaults to "phy".',
+    help='Which subject\'s content to run the script against. Can be either "phy" or "ada". Defaults to "phy".',
     default="phy"
 )

@@ -80,20 +80,19 @@ def add_comment_to_issue(token, issue_number, comment):
     return requests.post(url, headers=headers, json=data)
 
 
-def upload_file_to_github(token, issue_number, file_path):
-    file_name = f"{issue_number}-{os.path.basename(file_path)}"
+def upload_file_to_github(token, job_id, file_path, repo_path_name):
     # Read file contents (base64 encoded)
     with open(file_path, "rb") as f:
         file_contents = f.read()
 
-    url = f"https://api.github.com/repos/{REPO_PATH}/contents/outputs/{file_name}"
+    url = f"https://api.github.com/repos/{REPO_PATH}/contents/outputs/{repo_path_name}"
     headers = {
         "Authorization": f"token {token}",
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
     }
     data = {
-        "message": f"Output file for issue {issue_number}",
+        "message": f"Output file for job {job_id}",
         "content": base64.b64encode(file_contents).decode(),
         "branch": "master",
         "committer": {"name": "isaac-script-dispatcher", "email": "33040507+chrisjpurdy@users.noreply.github.com"}

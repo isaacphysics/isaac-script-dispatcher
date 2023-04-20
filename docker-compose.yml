@@ -17,5 +17,5 @@ services:
       - "5000:5000"
     volumes:
       - ./scripts:/app/scripts
-      - ${PHY_CONTENT_PATH}:/app/data/phy
-      - ${CS_CONTENT_PATH}:/app/data/cs
+      - ${PHY_CONTENT_PATH}:/app/data/rutherford-content
+      - ${CS_CONTENT_PATH}:/app/data/isaac-content-2

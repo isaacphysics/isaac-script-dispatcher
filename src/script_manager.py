@@ -1,33 +1,185 @@
-import os
-from constants import *
-import importlib
+"""
+    Script manager - contains information about all scripts and provides helpers to get particular info.
+    Needs to be updated when new scripts are added - this could be automated in future perhaps.
+"""
 
-DIRNAME = os.path.dirname(__file__)
-
-
-def list_scripts():
-    """ List all scripts in the current directory """
-    scripts = []
-    for file in os.listdir(SCRIPTS_PATH):
-        if file.endswith("_script.py"):
-            # Get the script name from the file name
-            scripts.append(file.split("_script.py")[0])
-    return scripts
-
-
-def get_all_script_info(logger=None):
-    """ Get all script information """
-    info_dict = dict()
-    for script_name in list_scripts():
-        module = importlib.import_module("scripts." + script_name + "_script")
-        try:
-            info_dict[script_name] = module.get_info()
-        except AttributeError:
-            info_dict[script_name] = {
-                "name": script_name,
-                "description": "Information not available for this script",
-                "arguments": []
+SCRIPTS = {
+    "list_question_data": {
+        "description": "Lists paths, ids and related content for question pages",
+        "arguments": []
+    },
+    "link_checker": {
+        "description": "Checks links across the content repository",
+        "arguments": [
+            {
+                "param": "eps",
+                "title": "Extra paths",
+                "description": "A semi-colon-separated list of extra paths to check against, in addition to the default paths.",
+                "example": "/pages/about_us;/pages/another_new_page;/questions/a_question_id"
             }
-            logger.error(f"No get_info function found for script {module.__name__}")
-        continue
-    return info_dict
+        ]
+    },
+    "find_broken_image_links": {
+        "description": """
+        Finds all figures in the content which have a src that doesn't point to a file that exists. Relies on the fact that
+        figure sources are relative paths, so if figure sources point to the CDN for example (do we even do that?) then this
+        will flag them up as "broken".
+        """,
+        "arguments": []
+    }
+}
+
+
+def get_script_arguments(script_name):
+    if script_name in SCRIPTS:
+        return SCRIPTS[script_name]["arguments"]
+    return None
+
+
+# var = {'action': 'created',
+#        'issue': {'url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/issues/60',
+#                  'repository_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts',
+#                  'labels_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/issues/60/labels{/name}',
+#                  'comments_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/issues/60/comments',
+#                  'events_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/issues/60/events',
+#                  'html_url': 'https://github.com/isaacphysics/isaac-dispatched-scripts/issues/60', 'id': 1677034190,
+#                  'node_id': 'I_kwDOJREZK85j9YLO', 'number': 60, 'title': '[Script]: ',
+#                  'user': {'login': 'chrisjpurdy', 'id': 33040507, 'node_id': 'MDQ6VXNlcjMzMDQwNTA3',
+#                           'avatar_url': 'https://avatars.githubusercontent.com/u/33040507?v=4', 'gravatar_id': '',
+#                           'url': 'https://api.github.com/users/chrisjpurdy',
+#                           'html_url': 'https://github.com/chrisjpurdy',
+#                           'followers_url': 'https://api.github.com/users/chrisjpurdy/followers',
+#                           'following_url': 'https://api.github.com/users/chrisjpurdy/following{/other_user}',
+#                           'gists_url': 'https://api.github.com/users/chrisjpurdy/gists{/gist_id}',
+#                           'starred_url': 'https://api.github.com/users/chrisjpurdy/starred{/owner}{/repo}',
+#                           'subscriptions_url': 'https://api.github.com/users/chrisjpurdy/subscriptions',
+#                           'organizations_url': 'https://api.github.com/users/chrisjpurdy/orgs',
+#                           'repos_url': 'https://api.github.com/users/chrisjpurdy/repos',
+#                           'events_url': 'https://api.github.com/users/chrisjpurdy/events{/privacy}',
+#                           'received_events_url': 'https://api.github.com/users/chrisjpurdy/received_events',
+#                           'type': 'User', 'site_admin': False}, 'labels': [], 'state': 'open', 'locked': False,
+#                  'assignee': None, 'assignees': [], 'milestone': None, 'comments': 1,
+#                  'created_at': '2023-04-20T16:17:11Z', 'updated_at': '2023-04-20T16:17:18Z', 'closed_at': None,
+#                  'author_association': 'COLLABORATOR', 'active_lock_reason': None,
+#                  'body': '### Script name\n\nlink_checker\n\n### Site\n\nAda CS', 'reactions': {
+#                'url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/issues/60/reactions',
+#                'total_count': 1, '+1': 0, '-1': 0, 'laugh': 0, 'hooray': 0, 'confused': 0, 'heart': 0, 'rocket': 1,
+#                'eyes': 0},
+#                  'timeline_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/issues/60/timeline',
+#                  'performed_via_github_app': None, 'state_reason': None
+#                  },
+#        'comment': {
+#         'url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/issues/comments/1516607929',
+#         'html_url': 'https://github.com/isaacphysics/isaac-dispatched-scripts/issues/60#issuecomment-1516607929',
+#         'issue_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/issues/60', 'id': 1516607929,
+#         'node_id': 'IC_kwDOJREZK85aZZm5',
+#         'user': {'login': 'isaac-script-dispatcher[bot]', 'id': 129531963, 'node_id': 'BOT_kgDOB7iAOw',
+#                  'avatar_url': 'https://avatars.githubusercontent.com/u/41633773?v=4', 'gravatar_id': '',
+#                  'url': 'https://api.github.com/users/isaac-script-dispatcher%5Bbot%5D',
+#                  'html_url': 'https://github.com/apps/isaac-script-dispatcher',
+#                  'followers_url': 'https://api.github.com/users/isaac-script-dispatcher%5Bbot%5D/followers',
+#                  'following_url': 'https://api.github.com/users/isaac-script-dispatcher%5Bbot%5D/following{/other_user}',
+#                  'gists_url': 'https://api.github.com/users/isaac-script-dispatcher%5Bbot%5D/gists{/gist_id}',
+#                  'starred_url': 'https://api.github.com/users/isaac-script-dispatcher%5Bbot%5D/starred{/owner}{/repo}',
+#                  'subscriptions_url': 'https://api.github.com/users/isaac-script-dispatcher%5Bbot%5D/subscriptions',
+#                  'organizations_url': 'https://api.github.com/users/isaac-script-dispatcher%5Bbot%5D/orgs',
+#                  'repos_url': 'https://api.github.com/users/isaac-script-dispatcher%5Bbot%5D/repos',
+#                  'events_url': 'https://api.github.com/users/isaac-script-dispatcher%5Bbot%5D/events{/privacy}',
+#                  'received_events_url': 'https://api.github.com/users/isaac-script-dispatcher%5Bbot%5D/received_events',
+#                  'type': 'Bot', 'site_admin': False}, 'created_at': '2023-04-20T16:17:18Z',
+#         'updated_at': '2023-04-20T16:17:18Z', 'author_association': 'NONE',
+#         'body': '\n### Script argument: Extra paths\n\nA semi-colon-separated list of extra paths to check against, in addition to the default paths.\n\nExample:\n```\n/pages/about_us;/pages/another_new_page;/questions/a_question_id\n```\n\nPlease reply to this comment with the argument, or delete this issue to cancel the job.\n',
+#         'reactions': {
+#             'url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/issues/comments/1516607929/reactions',
+#             'total_count': 0, '+1': 0, '-1': 0, 'laugh': 0, 'hooray': 0, 'confused': 0, 'heart': 0, 'rocket': 0,
+#             'eyes': 0}, 'performed_via_github_app': None},
+#        'repository': {'id': 621877547, 'node_id': 'R_kgDOJREZKw', 'name': 'isaac-dispatched-scripts',
+#                       'full_name': 'isaacphysics/isaac-dispatched-scripts', 'private': True,
+#                       'owner': {'login': 'isaacphysics', 'id': 41633773, 'node_id': 'MDEyOk9yZ2FuaXphdGlvbjQxNjMzNzcz',
+#                                 'avatar_url': 'https://avatars.githubusercontent.com/u/41633773?v=4', 'gravatar_id': '',
+#                                 'url': 'https://api.github.com/users/isaacphysics',
+#                                 'html_url': 'https://github.com/isaacphysics',
+#                                 'followers_url': 'https://api.github.com/users/isaacphysics/followers',
+#                                 'following_url': 'https://api.github.com/users/isaacphysics/following{/other_user}',
+#                                 'gists_url': 'https://api.github.com/users/isaacphysics/gists{/gist_id}',
+#                                 'starred_url': 'https://api.github.com/users/isaacphysics/starred{/owner}{/repo}',
+#                                 'subscriptions_url': 'https://api.github.com/users/isaacphysics/subscriptions',
+#                                 'organizations_url': 'https://api.github.com/users/isaacphysics/orgs',
+#                                 'repos_url': 'https://api.github.com/users/isaacphysics/repos',
+#                                 'events_url': 'https://api.github.com/users/isaacphysics/events{/privacy}',
+#                                 'received_events_url': 'https://api.github.com/users/isaacphysics/received_events',
+#                                 'type': 'Organization', 'site_admin': False},
+#                       'html_url': 'https://github.com/isaacphysics/isaac-dispatched-scripts', 'description': None,
+#                       'fork': False, 'url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts',
+#                       'forks_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/forks',
+#                       'keys_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/keys{/key_id}',
+#                       'collaborators_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/collaborators{/collaborator}',
+#                       'teams_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/teams',
+#                       'hooks_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/hooks',
+#                       'issue_events_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/issues/events{/number}',
+#                       'events_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/events',
+#                       'assignees_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/assignees{/user}',
+#                       'branches_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/branches{/branch}',
+#                       'tags_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/tags',
+#                       'blobs_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/git/blobs{/sha}',
+#                       'git_tags_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/git/tags{/sha}',
+#                       'git_refs_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/git/refs{/sha}',
+#                       'trees_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/git/trees{/sha}',
+#                       'statuses_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/statuses/{sha}',
+#                       'languages_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/languages',
+#                       'stargazers_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/stargazers',
+#                       'contributors_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/contributors',
+#                       'subscribers_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/subscribers',
+#                       'subscription_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/subscription',
+#                       'commits_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/commits{/sha}',
+#                       'git_commits_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/git/commits{/sha}',
+#                       'comments_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/comments{/number}',
+#                       'issue_comment_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/issues/comments{/number}',
+#                       'contents_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/contents/{+path}',
+#                       'compare_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/compare/{base}...{head}',
+#                       'merges_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/merges',
+#                       'archive_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/{archive_format}{/ref}',
+#                       'downloads_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/downloads',
+#                       'issues_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/issues{/number}',
+#                       'pulls_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/pulls{/number}',
+#                       'milestones_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/milestones{/number}',
+#                       'notifications_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/notifications{?since,all,participating}',
+#                       'labels_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/labels{/name}',
+#                       'releases_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/releases{/id}',
+#                       'deployments_url': 'https://api.github.com/repos/isaacphysics/isaac-dispatched-scripts/deployments',
+#                       'created_at': '2023-03-31T15:23:01Z', 'updated_at': '2023-04-12T10:34:15Z',
+#                       'pushed_at': '2023-04-20T16:02:20Z',
+#                       'git_url': 'git://github.com/isaacphysics/isaac-dispatched-scripts.git',
+#                       'ssh_url': 'git@github.com:isaacphysics/isaac-dispatched-scripts.git',
+#                       'clone_url': 'https://github.com/isaacphysics/isaac-dispatched-scripts.git',
+#                       'svn_url': 'https://github.com/isaacphysics/isaac-dispatched-scripts', 'homepage': None,
+#                       'size': 1973, 'stargazers_count': 0, 'watchers_count': 0, 'language': None, 'has_issues': True,
+#                       'has_projects': True, 'has_downloads': True, 'has_wiki': False, 'has_pages': False,
+#                       'has_discussions': False, 'forks_count': 0, 'mirror_url': None, 'archived': False,
+#                       'disabled': False, 'open_issues_count': 4, 'license': None, 'allow_forking': False,
+#                       'is_template': False, 'web_commit_signoff_required': False, 'topics': [], 'visibility': 'private',
+#                       'forks': 0, 'open_issues': 4, 'watchers': 0, 'default_branch': 'master'},
+#        'organization': {'login': 'isaacphysics', 'id': 41633773, 'node_id': 'MDEyOk9yZ2FuaXphdGlvbjQxNjMzNzcz',
+#                         'url': 'https://api.github.com/orgs/isaacphysics',
+#                         'repos_url': 'https://api.github.com/orgs/isaacphysics/repos',
+#                         'events_url': 'https://api.github.com/orgs/isaacphysics/events',
+#                         'hooks_url': 'https://api.github.com/orgs/isaacphysics/hooks',
+#                         'issues_url': 'https://api.github.com/orgs/isaacphysics/issues',
+#                         'members_url': 'https://api.github.com/orgs/isaacphysics/members{/member}',
+#                         'public_members_url': 'https://api.github.com/orgs/isaacphysics/public_members{/member}',
+#                         'avatar_url': 'https://avatars.githubusercontent.com/u/41633773?v=4',
+#                         'description': 'Isaac Physics and Ada Computer Science'},
+#        'sender': {'login': 'isaac-script-dispatcher[bot]', 'id': 129531963, 'node_id': 'BOT_kgDOB7iAOw',
+#                   'avatar_url': 'https://avatars.githubusercontent.com/u/41633773?v=4', 'gravatar_id': '',
+#                   'url': 'https://api.github.com/users/isaac-script-dispatcher%5Bbot%5D',
+#                   'html_url': 'https://github.com/apps/isaac-script-dispatcher',
+#                   'followers_url': 'https://api.github.com/users/isaac-script-dispatcher%5Bbot%5D/followers',
+#                   'following_url': 'https://api.github.com/users/isaac-script-dispatcher%5Bbot%5D/following{/other_user}',
+#                   'gists_url': 'https://api.github.com/users/isaac-script-dispatcher%5Bbot%5D/gists{/gist_id}',
+#                   'starred_url': 'https://api.github.com/users/isaac-script-dispatcher%5Bbot%5D/starred{/owner}{/repo}',
+#                   'subscriptions_url': 'https://api.github.com/users/isaac-script-dispatcher%5Bbot%5D/subscriptions',
+#                   'organizations_url': 'https://api.github.com/users/isaac-script-dispatcher%5Bbot%5D/orgs',
+#                   'repos_url': 'https://api.github.com/users/isaac-script-dispatcher%5Bbot%5D/repos',
+#                   'events_url': 'https://api.github.com/users/isaac-script-dispatcher%5Bbot%5D/events{/privacy}',
+#                   'received_events_url': 'https://api.github.com/users/isaac-script-dispatcher%5Bbot%5D/received_events',
+#                   'type': 'Bot', 'site_admin': False}}
