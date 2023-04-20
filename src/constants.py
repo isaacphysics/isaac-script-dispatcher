@@ -15,12 +15,20 @@ class JobRunStatus:
 SCRIPTS_PATH = r"./scripts"
 PHY_DATA_PATH = r"./data/rutherford-content"
 CS_DATA_PATH = r"./data/isaac-content-2"
+DATA_PATH_MAP = {
+    "phy": PHY_DATA_PATH,
+    "ada": CS_DATA_PATH,
+}
 OUTPUT_PATH = r"./output"
 KEY_PATH = r"./key.pem"
 
 JOB_DB_PATH = r"job_queue.db"
 
 REPO_PATH = r"isaacphysics/isaac-dispatched-scripts"
+CONTENT_REPO_PATH_MAP = {
+    "phy": r"isaacphysics/rutherford-content",
+    "ada": r"isaacphysics/isaac-content-2"
+}
 
 NO_JOB_SLEEP_TIME = 5
 

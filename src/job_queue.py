@@ -1,4 +1,3 @@
-import json
 import os
 import signal
 import subprocess
@@ -7,7 +6,7 @@ from multiprocessing import Process
 
 from db_logic import get_next_job, update_job_status
 from constants import *
-from github import pull_repos, get_github_token, add_reaction_to_issue, add_comment_to_issue, upload_file_to_github
+from github import checkout_branch, new_branch_and_push_changes, pull_repos, get_github_token, add_reaction_to_issue, add_comment_to_issue, upload_file_to_github
 from script_manager import SCRIPTS
 
 
@@ -38,31 +37,49 @@ def run_python_script(script_name, job_id, subject, args):
 
 
 def run_script_and_close_issue(job, job_id, token):
+    script_info = SCRIPTS[job["script_name"]]
+
     # First pair argument names with values
-    args = [i for j in zip(map(lambda x: f"--{x['param']}", SCRIPTS[job["script_name"]]["arguments"]), job["arguments"]) for i in j]
+    args = [i for j in zip(map(lambda x: f"--{x['param']}", script_info["arguments"]), job["arguments"]) for i in j]
     result = run_python_script(job["script_name"], job_id, job["subject"], args)
     if "error" in result:
         if comment(token, job_id, job["issue_number"],
                    f"### Error running script:\n\n> {result['error']}\n\nPlease contact the team for assistance, quoting the job ID: {job_id}"):
             update_job_status(job_id, JobRunStatus.FAILED, result)
+            return
     else:
         try:
             # Upload each output file to GitHub and get the URLs
             urls = []
-            for f in os.listdir(f"{OUTPUT_PATH}/{job_id}"):
-                response = upload_file_to_github(token, job_id, f"{OUTPUT_PATH}/{job_id}/{f}", f"{job_id}/{f}")
-                response_json = response.json()
-                if not response.status_code == 201 or "html_url" not in response_json["content"]:
+            if os.path.exists(f"{OUTPUT_PATH}/{job_id}"):
+                for f in os.listdir(f"{OUTPUT_PATH}/{job_id}"):
+                    response = upload_file_to_github(token, job_id, f"{OUTPUT_PATH}/{job_id}/{f}", f"{job_id}/{f}")
+                    response_json = response.json()
+                    if not response.status_code == 201 or "html_url" not in response_json["content"]:
+                        if comment(token, job_id, job["issue_number"],
+                                   f"### Error running script:\n\n> {response.text}\n\nPlease contact the team for assistance, quoting the job ID: {job_id}"):
+                            update_job_status(job_id, JobRunStatus.FAILED,
+                                              {"error": f"Failed to upload file: {response.text}"})
+                            return
+                    urls.append({"file": f, "url": response_json["content"]["html_url"]})
+
+            pr_compare_link_text = ""
+            if script_info["type"] == "write":
+                # Make a new branch and commit the changes, push to GitHub, and create a pull request
+                result = new_branch_and_push_changes(DATA_PATH_MAP[job["subject"]], job_id)
+                if not result["success"]:
                     if comment(token, job_id, job["issue_number"],
-                               f"### Error running script:\n\n> {response.text}\n\nPlease contact the team for assistance, quoting the job ID: {job_id}"):
-                        update_job_status(job_id, JobRunStatus.FAILED,
-                                          {"error": f"Failed to upload file: {response.text}"})
-                urls.append({"file": f, "url": response_json["content"]["html_url"]})
+                               f"### Error creating pull request:\n\n> {result['message']}\n\nPlease contact the team for assistance, quoting the job ID: {job_id}"):
+                        update_job_status(job_id, JobRunStatus.FAILED, {"error": result["message"]})
+                        return
+
+                pr_compare_link_text = f"\n\n### Changes\n\nPlease review and merge changes made by the script [here](https://github.com/{CONTENT_REPO_PATH_MAP[job['subject']]}/compare/master...{job_id})."
+                checkout_branch(DATA_PATH_MAP[job["subject"]], "master")
 
             # Add output to issue, and add a links to each output file
             output = f"\n\n```\n{result['result']}\n```" if result["result"] else ""
             download_urls = "\n\n" + "\n".join([f"- [{url['file']}]({url['url']})" for url in urls])
-            if comment(token, job_id, job["issue_number"], f"### Output{output}{download_urls}"):
+            if comment(token, job_id, job["issue_number"], f"### Output{output}{download_urls}{pr_compare_link_text}"):
                 update_job_status(job_id, JobRunStatus.FINISHED, result)
         except Exception as e:
             if comment(token, job_id, job["issue_number"],
@@ -121,6 +138,7 @@ def github_issue_confirm_job(job_id, job):
     token = get_github_token()  # Can give param logger=log_to_file to debug
 
     # Add a reaction to the issue to show that we've seen it (if it's new)
+    # TODO maybe should do this using a different job type (one for new issues, one for existing issues)
     if job["issue_status"] == "opened":
         response = add_reaction_to_issue(token, job["issue_number"], "rocket")
         if not response.status_code == 201:

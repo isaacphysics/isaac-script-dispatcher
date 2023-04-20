@@ -6,7 +6,8 @@
 SCRIPTS = {
     "list_question_data": {
         "description": "Lists paths, ids and related content for question pages",
-        "arguments": []
+        "arguments": [],
+        "type": "read"
     },
     "link_checker": {
         "description": "Checks links across the content repository",
@@ -17,15 +18,22 @@ SCRIPTS = {
                 "description": "A semi-colon-separated list of extra paths to check against, in addition to the default paths.",
                 "example": "/pages/about_us;/pages/another_new_page;/questions/a_question_id"
             }
-        ]
+        ],
+        "type": "read"
     },
     "find_broken_image_links": {
         "description": """
-        Finds all figures in the content which have a src that doesn't point to a file that exists. Relies on the fact that
-        figure sources are relative paths, so if figure sources point to the CDN for example (do we even do that?) then this
-        will flag them up as "broken".
+Finds all figures in the content which have a src that doesn't point to a file that exists. Relies on the fact that
+figure sources are relative paths, so if figure sources point to the CDN for example (do we even do that?) then this
+will flag them up as "broken".
         """,
-        "arguments": []
+        "arguments": [],
+        "type": "read"
+    },
+    "compress_svgs": {
+        "description": "Compresses all SVGs in the content repository",
+        "arguments": [],
+        "type": "write"
     }
 }
 

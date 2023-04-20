@@ -91,6 +91,7 @@ def upload_file_to_github(token, job_id, file_path, repo_path_name):
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
     }
+    # FIXME don't use my (Chris P's) email address
     data = {
         "message": f"Output file for job {job_id}",
         "content": base64.b64encode(file_contents).decode(),
@@ -100,6 +101,21 @@ def upload_file_to_github(token, job_id, file_path, repo_path_name):
 
     return requests.put(url, headers=headers, json=data)
 
+
+def create_pull_request(token, branch_name, subject):
+    url = f"https://api.github.com/repos/{CONTENT_REPO_PATH_MAP[subject]}/pulls"
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    data = {
+        "title": f"Update for {branch_name}",
+        "head": branch_name,
+        "base": "master",
+        "body": f"isaac-script-dispatcher[bot] automatically generated this pull request. Job id: {branch_name}.",
+    }
+    return requests.post(url, headers=headers, json=data)
 
 # --- Content repository management ---
 
@@ -120,3 +136,64 @@ def pull_repos():
     update_repo(SCRIPTS_PATH)
     update_repo(PHY_DATA_PATH)
     update_repo(CS_DATA_PATH)
+
+
+def new_branch_and_push_changes(repo_path, branch_name):
+    try:
+        # First, set git config username and email
+        subprocess.run(
+            ["git", "-C", repo_path, "config", "user.name", "chrisjpurdy"],
+            capture_output=True,
+            check=True,
+            text=True,
+        )
+        subprocess.run(
+            ["git", "-C", repo_path, "config", "user.email", "33040507+chrisjpurdy@users.noreply.github.com"],
+            capture_output=True,
+            check=True,
+            text=True,
+        )
+        # Create new branch
+        subprocess.run(
+            ["git", "-C", repo_path, "checkout", "-b", branch_name],
+            capture_output=True,
+            check=True,
+            text=True,
+        )
+        # Add all files
+        subprocess.run(
+            ["git", "-C", repo_path, "add", "."],
+            capture_output=True,
+            check=True,
+            text=True,
+        )
+        # Commit
+        subprocess.run(
+            ["git", "-C", repo_path, "commit", "-m", f"Update for {branch_name}"],
+            capture_output=True,
+            check=True,
+            text=True,
+        )
+        # Push branch (create it if it doesn't exist)
+        result = subprocess.run(
+            ["git", "-C", repo_path, "push", "--set-upstream", "origin", branch_name],
+            capture_output=True,
+            check=True,
+            text=True,
+        )
+        return {"success": True, "message": result.stdout}
+    except subprocess.CalledProcessError as e:
+        return {"success": False, "message": e.stderr}
+
+
+def checkout_branch(repo_path, branch_name):
+    try:
+        result = subprocess.run(
+            ["git", "-C", repo_path, "checkout", branch_name],
+            capture_output=True,
+            check=True,
+            text=True,
+        )
+        return {"success": True, "message": result.stdout}
+    except subprocess.CalledProcessError as e:
+        return {"success": False, "message": e.stderr}
