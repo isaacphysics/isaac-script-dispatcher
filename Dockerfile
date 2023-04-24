@@ -9,12 +9,6 @@ RUN apt-get update && \
     apt-get install -y git && \
     rm -rf /var/lib/apt/lists/*
 
-# Set up keys for GitHub
-ARG SSH_PRIVATE_KEY
-RUN mkdir -p ~/.ssh && chmod 700 ~/.ssh && \
-    echo "${SSH_PRIVATE_KEY}" > ~/.ssh/id_ed25519 && \
-    chmod 600 ~/.ssh/id_ed25519 && \
-    ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts
 ARG APP_PRIVATE_KEY
 RUN echo "${APP_PRIVATE_KEY}" > key.pem && \
     chmod 600 key.pem

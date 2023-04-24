@@ -141,6 +141,7 @@ def webhook():
             if command in ["run", "rerun", "restart", "re-run", "re-start"]:
                 if job:
                     # Reset the job
+                    app.logger.info(f"Rerunning issue {json['issue']['number']}, new job id {job['id']}. Script name: {job['script_name']}, subject: {job['subject']}")
                     reset_job(job["id"], data={
                         "issue_number": json["issue"]["number"],
                         "issue_status": "reset",

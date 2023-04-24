@@ -50,6 +50,9 @@ def get_github_token(logger=(lambda x: None)):
         token = get_installation_token(json_web_token, os.getenv("GITHUB_INSTALLATION_ID"))
         save_token(token["token"], time.time(), dateutil.parser.isoparse(token["expires_at"]).timestamp())
         logger(f"Got new token: {token}")
+        # Go though the repos and update the origin using the new token
+        update_repo_origin(PHY_DATA_PATH, CONTENT_REPO_PATH_MAP["phy"], token["token"])
+        update_repo_origin(CS_DATA_PATH, CONTENT_REPO_PATH_MAP["ada"], token["token"])
         return token["token"]
     else:
         return db_token[0]
@@ -91,18 +94,17 @@ def upload_file_to_github(token, job_id, file_path, repo_path_name):
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
     }
-    # FIXME don't use my (Chris P's) email address
     data = {
         "message": f"Output file for job {job_id}",
         "content": base64.b64encode(file_contents).decode(),
         "branch": "master",
-        "committer": {"name": "isaac-script-dispatcher", "email": "33040507+chrisjpurdy@users.noreply.github.com"}
+        "committer": {"name": BOT_USERNAME, "email": BOT_EMAIL}
     }
 
     return requests.put(url, headers=headers, json=data)
 
 
-def create_pull_request(token, branch_name, subject):
+def create_pull_request(token, branch_name, subject, issue_number):
     url = f"https://api.github.com/repos/{CONTENT_REPO_PATH_MAP[subject]}/pulls"
     headers = {
         "Authorization": f"token {token}",
@@ -110,19 +112,36 @@ def create_pull_request(token, branch_name, subject):
         "X-GitHub-Api-Version": "2022-11-28",
     }
     data = {
-        "title": f"Update for {branch_name}",
+        "title": f"[Script] Output for issue {issue_number}",
         "head": branch_name,
         "base": "master",
-        "body": f"isaac-script-dispatcher[bot] automatically generated this pull request. Job id: {branch_name}.",
+        "body": f"This pull request was automatically generated.\n\n"
+                f"These changes were requested in the issue: https://github.com/isaacphysics/isaac-dispatched-scripts/issues/{issue_number}\n\n"
+                f"`Job id: {branch_name}`",
     }
     return requests.post(url, headers=headers, json=data)
 
+
 # --- Content repository management ---
+
+def update_repo_origin(repo_path, repo_url, token):
+    try:
+        result = subprocess.run(
+            ["git", "-C", repo_path, "remote", "set-url",
+             "origin", f"https://{BOT_USERNAME}:{token}@github.com/{repo_url}.git"],
+            capture_output=True,
+            check=True,
+            text=True,
+        )
+        return {"success": True, "message": result.stdout}
+    except subprocess.CalledProcessError as e:
+        return {"success": False, "message": e.stderr}
+
 
 def update_repo(repo_path):
     try:
         result = subprocess.run(
-            ["git", "-C", repo_path, "pull"],
+            ["git", "-C", repo_path, "pull", "origin", "master"],
             capture_output=True,
             check=True,
             text=True,
@@ -133,26 +152,37 @@ def update_repo(repo_path):
 
 
 def pull_repos():
-    update_repo(SCRIPTS_PATH)
+    checkout_master(PHY_DATA_PATH)
     update_repo(PHY_DATA_PATH)
+    checkout_master(CS_DATA_PATH)
     update_repo(CS_DATA_PATH)
+
+
+def checkout_master(repo_path):
+    return subprocess.run(
+        ["git", "-C", repo_path, "checkout", "master"],
+        capture_output=True,
+        check=True,
+        text=True,
+    )
 
 
 def new_branch_and_push_changes(repo_path, branch_name):
     try:
         # First, set git config username and email
         subprocess.run(
-            ["git", "-C", repo_path, "config", "user.name", "chrisjpurdy"],
+            ["git", "-C", repo_path, "config", "user.name", BOT_USERNAME],
             capture_output=True,
             check=True,
             text=True,
         )
         subprocess.run(
-            ["git", "-C", repo_path, "config", "user.email", "33040507+chrisjpurdy@users.noreply.github.com"],
+            ["git", "-C", repo_path, "config", "user.email", BOT_EMAIL],
             capture_output=True,
             check=True,
             text=True,
         )
+
         # Create new branch
         subprocess.run(
             ["git", "-C", repo_path, "checkout", "-b", branch_name],
@@ -160,13 +190,26 @@ def new_branch_and_push_changes(repo_path, branch_name):
             check=True,
             text=True,
         )
+
         # Add all files
         subprocess.run(
-            ["git", "-C", repo_path, "add", "."],
+            ["git", "-C", repo_path, "add", "-A"],
             capture_output=True,
             check=True,
             text=True,
         )
+
+        # Check if there are any changes with diff-index
+        result = subprocess.run(
+            ["git", "-C", repo_path, "diff-index", "--quiet", "HEAD"],
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+        if result.returncode == 0:
+            # No changes, so we can just return
+            return {"status": PushChangesStatus.NO_CHANGES, "message": "No changes to commit"}
+
         # Commit
         subprocess.run(
             ["git", "-C", repo_path, "commit", "-m", f"Update for {branch_name}"],
@@ -174,6 +217,7 @@ def new_branch_and_push_changes(repo_path, branch_name):
             check=True,
             text=True,
         )
+
         # Push branch (create it if it doesn't exist)
         result = subprocess.run(
             ["git", "-C", repo_path, "push", "--set-upstream", "origin", branch_name],
@@ -181,19 +225,18 @@ def new_branch_and_push_changes(repo_path, branch_name):
             check=True,
             text=True,
         )
-        return {"success": True, "message": result.stdout}
-    except subprocess.CalledProcessError as e:
-        return {"success": False, "message": e.stderr}
 
+        # Checkout master again
+        checkout_master(repo_path)
 
-def checkout_branch(repo_path, branch_name):
-    try:
-        result = subprocess.run(
-            ["git", "-C", repo_path, "checkout", branch_name],
+        # Delete local branch
+        subprocess.run(
+            ["git", "-C", repo_path, "branch", "-D", branch_name],
             capture_output=True,
             check=True,
             text=True,
         )
-        return {"success": True, "message": result.stdout}
-    except subprocess.CalledProcessError as e:
-        return {"success": False, "message": e.stderr}
+
+        return {"status": PushChangesStatus.SUCCESS, "message": result.stdout}
+    except Exception as e:
+        return {"status": PushChangesStatus.FAILED, "message": str(e)}

@@ -6,7 +6,6 @@ services:
     build:
       context: .
       args:
-        SSH_PRIVATE_KEY: ${SSH_PRIVATE_KEY}
         APP_PRIVATE_KEY: ${APP_PRIVATE_KEY}
         GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET}
         GITHUB_API_SECRET: ${GITHUB_API_SECRET}
@@ -18,4 +17,4 @@ services:
     volumes:
       - ./scripts:/app/scripts
       - ${PHY_CONTENT_PATH}:/app/data/rutherford-content
-      - ${CS_CONTENT_PATH}:/app/data/isaac-content-2
+      - ${CS_CONTENT_PATH}:/app/data/ada-content

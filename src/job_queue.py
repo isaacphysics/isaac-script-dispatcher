@@ -6,7 +6,8 @@ from multiprocessing import Process
 
 from db_logic import get_next_job, update_job_status
 from constants import *
-from github import checkout_branch, new_branch_and_push_changes, pull_repos, get_github_token, add_reaction_to_issue, add_comment_to_issue, upload_file_to_github
+from git_logic import new_branch_and_push_changes, pull_repos, get_github_token, add_reaction_to_issue, \
+    add_comment_to_issue, upload_file_to_github, create_pull_request
 from script_manager import SCRIPTS
 
 
@@ -63,23 +64,31 @@ def run_script_and_close_issue(job, job_id, token):
                             return
                     urls.append({"file": f, "url": response_json["content"]["html_url"]})
 
-            pr_compare_link_text = ""
+            changes_link_text = ""
             if script_info["type"] == "write":
                 # Make a new branch and commit the changes, push to GitHub, and create a pull request
-                result = new_branch_and_push_changes(DATA_PATH_MAP[job["subject"]], job_id)
-                if not result["success"]:
+                changes_result = new_branch_and_push_changes(DATA_PATH_MAP[job["subject"]], job_id)
+                if changes_result["status"] == PushChangesStatus.FAILED:
                     if comment(token, job_id, job["issue_number"],
-                               f"### Error creating pull request:\n\n> {result['message']}\n\nPlease contact the team for assistance, quoting the job ID: {job_id}"):
-                        update_job_status(job_id, JobRunStatus.FAILED, {"error": result["message"]})
+                               f"### Error creating pull request:\n\n> {changes_result['message']}\n\nPlease contact the team for assistance, quoting the job ID: {job_id}"):
+                        update_job_status(job_id, JobRunStatus.FAILED, {"error": changes_result["message"]})
                         return
-
-                pr_compare_link_text = f"\n\n### Changes\n\nPlease review and merge changes made by the script [here](https://github.com/{CONTENT_REPO_PATH_MAP[job['subject']]}/compare/master...{job_id})."
-                checkout_branch(DATA_PATH_MAP[job["subject"]], "master")
+                elif changes_result["status"] == PushChangesStatus.SUCCESS:
+                    pr_result = create_pull_request(token, job_id, job["subject"], job["issue_number"])
+                    pr_result_json = pr_result.json()
+                    if "_links" not in pr_result_json or "html" not in pr_result_json["_links"] or "href" not in pr_result_json["_links"]["html"]:
+                        if comment(token, job_id, job["issue_number"],
+                                   f"### Error creating pull request:\n\nPlease contact the team for assistance, quoting the job ID: {job_id}"):
+                            update_job_status(job_id, JobRunStatus.FAILED, {"error": f"Failed to create pull request: response {pr_result_json}"})
+                            return
+                    changes_link_text = f"\n\n### Changes\n\nPlease review and merge changes made by the script [here]({pr_result_json['_links']['html']['href']})."
+                else:
+                    changes_link_text = "\n\n### Changes\n\nNo changes were made by the script."
 
             # Add output to issue, and add a links to each output file
             output = f"\n\n```\n{result['result']}\n```" if result["result"] else ""
             download_urls = "\n\n" + "\n".join([f"- [{url['file']}]({url['url']})" for url in urls])
-            if comment(token, job_id, job["issue_number"], f"### Output{output}{download_urls}{pr_compare_link_text}"):
+            if comment(token, job_id, job["issue_number"], f"### Output{output}{download_urls}{changes_link_text}"):
                 update_job_status(job_id, JobRunStatus.FINISHED, result)
         except Exception as e:
             if comment(token, job_id, job["issue_number"],
@@ -131,11 +140,16 @@ class GracefulKiller:
 # --- Job handlers ---
 
 def github_issue_confirm_job(job_id, job):
-    # First make sure that the content repos are up to date
-    pull_repos()
-
     # Get a GitHub token
     token = get_github_token()  # Can give param logger=log_to_file to debug
+
+    # First make sure that the content repos are up to date
+    try:
+        pull_repos()
+    except Exception as e:
+        if comment(token, job_id, job["issue_number"], f"### Error pulling content repos:\n\n> {str(e)}\n\nPlease contact the team for assistance, quoting the job ID: {job_id}"):
+            update_job_status(job_id, JobRunStatus.FAILED, {"error": str(e)})
+        return
 
     # Add a reaction to the issue to show that we've seen it (if it's new)
     # TODO maybe should do this using a different job type (one for new issues, one for existing issues)

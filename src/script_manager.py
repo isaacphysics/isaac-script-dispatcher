@@ -14,6 +14,7 @@ SCRIPTS = {
         "arguments": [
             {
                 "param": "eps",
+                "type": "string",
                 "title": "Extra paths",
                 "description": "A semi-colon-separated list of extra paths to check against, in addition to the default paths.",
                 "example": "/pages/about_us;/pages/another_new_page;/questions/a_question_id"
