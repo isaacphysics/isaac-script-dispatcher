@@ -29,8 +29,10 @@ COPY requirements.txt /app
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Create a directory for the script outputs
+# Create directories for the script outputs and input files
 RUN mkdir /app/output
+RUN mkdir /app/input
+RUN mkdir /app/data
 
 # Copy the entire project source into the container at /app
 COPY src /app

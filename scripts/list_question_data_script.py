@@ -4,12 +4,11 @@
 
 """
 
-# These import paths need to be prepended by "scripts." for the script_manager to work
 import os
 
 from arguments import base_parser
 from helper_functions import build_csv_from_content, value_or_default
-from constants import OUT_DIR_PATH, CONTENT_PATH_MAP, PHY_CONTENT_BASE_PATH, CS_CONTENT_BASE_PATH
+from constants import OUT_DIR_PATH, PHY_CONTENT_BASE_PATH, CS_CONTENT_BASE_PATH
 
 # This should really be in a constants file
 content_type_name_map = {

@@ -1,5 +1,5 @@
 """
-Configuration constants for the scripts runner.
+Configuration constants for the scripts runner, and related enums.
 """
 class JobType:
     ISSUE = "ISSUE"
@@ -18,6 +18,7 @@ class PushChangesStatus:
     FAILED = "FAILED"
 
 SCRIPTS_PATH = r"./scripts"
+DATA_PATH = r"./data"
 PHY_DATA_PATH = r"./data/rutherford-content"
 CS_DATA_PATH = r"./data/ada-content"
 DATA_PATH_MAP = {
@@ -25,6 +26,7 @@ DATA_PATH_MAP = {
     "ada": CS_DATA_PATH,
 }
 OUTPUT_PATH = r"./output"
+INPUT_PATH = r"./input"
 KEY_PATH = r"./key.pem"
 
 JOB_DB_PATH = r"job_queue.db"

@@ -16,5 +16,3 @@ services:
       - "5000:5000"
     volumes:
       - ./scripts:/app/scripts
-      - ${PHY_CONTENT_PATH}:/app/data/rutherford-content
-      - ${CS_CONTENT_PATH}:/app/data/ada-content

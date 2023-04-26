@@ -74,7 +74,10 @@ def enqueue_job(job_type, data=None):
     return job_id
 
 
-def update_job_status(job_id, new_status, data=None):
+def update_job_status(job_id, new_status, data=None, logger=lambda x: None):
+    if new_status == JobRunStatus.FAILED:
+        logger(f"Job {job_id} failed: {data['error'] if data and 'error' in data else '[no error message]'}")
+
     if new_status == JobRunStatus.RUNNING:
         raise ValueError("Cannot set job status to RUNNING. Use get_next_job instead.")
     else:

@@ -4,6 +4,7 @@ import logging
 import os
 import re
 
+import requests
 from flask import Flask, request, jsonify
 from werkzeug.exceptions import HTTPException, default_exceptions
 
@@ -92,6 +93,15 @@ def list_scripts():
     return jsonify(SCRIPTS)
 
 
+@app.route('/log', methods=['POST'])
+def log():
+    if not request.is_json:
+        return jsonify({"error": "Invalid request format"}), 400
+    json = request.get_json()
+    # Log whatever is in the `message` field
+    app.logger.info(json["message"])
+    return jsonify({"message": "Logged"})
+
 # --- Webhook endpoint ---
 # The only one that really matters, the rest are just for testing and admin purposes. This should be the only one
 # that's exposed to the internet.
@@ -118,10 +128,12 @@ def webhook():
         # Find the word that comes after "### Script name\n"
         script_name = re.search(r"#*\s?Script name\n*(.*)", json["issue"]["body"]).group(1)
         site = re.search(r"#*\s?Site\n*(.*)", json["issue"]["body"]).group(1)
+        create_pr = re.search(r"#*\s?Create PR\n*(.*)", json["issue"]["body"]).group(1) == "Yes"
         app.logger.info(f"New issue opened: {json['issue']['number']}, script name: {script_name}, site: {site}")
         enqueue_job(JobType.ISSUE, data={
             "issue_number": json["issue"]["number"],
             "issue_status": "opened",
+            "create_pull_request": create_pr,
             "script_name": script_name,
             "subject": "ada" if site == "Ada CS" else "phy",
             "arguments": [],  # Is incrementally built up by the user over a few jobs in a "conversation" with the bot (if arguments are needed)
@@ -145,6 +157,7 @@ def webhook():
                     reset_job(job["id"], data={
                         "issue_number": json["issue"]["number"],
                         "issue_status": "reset",
+                        "create_pull_request": job["create_pull_request"],
                         "script_name": job["script_name"],
                         "subject": job["subject"],
                         "arguments": []
@@ -152,9 +165,12 @@ def webhook():
                 else:
                     script_name = re.search(r"#*\s?Script name\n*(.*)", json["issue"]["body"]).group(1)
                     site = re.search(r"#*\s?Site\n*(.*)", json["issue"]["body"]).group(1)
+                    create_pr = re.search(r"#*\s?Create PR\n*(.*)", json["issue"]["body"]).group(1) == "Yes"
+                    app.logger.info(f"Recreating issue {json['issue']['number']}. Script name: {script_name}, subject: {site}")
                     enqueue_job(JobType.ISSUE, data={
                         "issue_number": json["issue"]["number"],
                         "issue_status": "reset",
+                        "create_pull_request": create_pr,
                         "script_name": script_name,
                         "subject": "ada" if site == "Ada CS" else "phy",
                         "arguments": []
@@ -164,12 +180,25 @@ def webhook():
         if not job:
             return jsonify({"error": "Cannot find job with that issue number"}), 404
 
-        # FIXME should check for injection attacks here (see line 27 job_queue.py)
+        # FIXME should check for injection attacks here (see line 36 job_queue.py)
 
-        # Must be an argument, strip the comment body of leading/trailing whitespace, and add it to the job
+        # Must be an argument...
+        app.logger.info(f"Adding argument to job {job['id']}. Argument: {json['comment']['body']}")
+
+        # Get script info
+        script_info = SCRIPTS[job["script_name"]]
+        argument_index = len(job["arguments"])
+        if argument_index >= len(script_info["arguments"]):
+            return jsonify({"error": "Too many arguments"}), 400
+
+        # Validation is done in the worker, so we don't need to do it here
         argument = json["comment"]["body"].strip("`\t\n ")
+
         # Update the job, adding the argument to the list of arguments
-        update_job_status(job["id"], JobRunStatus.PENDING, data={"arguments": job["arguments"] + [argument]})
+        update_job_status(job["id"], JobRunStatus.PENDING, data={
+            "arguments": job["arguments"] + [argument],
+            "issue_status": "comment"
+        })
 
     return jsonify({"message": "Webhook received"})
 

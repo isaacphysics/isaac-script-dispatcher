@@ -7,3 +7,4 @@ CONTENT_PATH_MAP = {
     "ada": CS_CONTENT_BASE_PATH
 }
 OUT_DIR_PATH = r'./output'
+IN_DIR_PATH = r'./input'
