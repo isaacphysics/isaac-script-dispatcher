@@ -9,9 +9,7 @@ RUN apt-get update && \
     apt-get install -y git && \
     rm -rf /var/lib/apt/lists/*
 
-ARG APP_PRIVATE_KEY
-RUN echo "${APP_PRIVATE_KEY}" > key.pem && \
-    chmod 600 key.pem
+RUN chmod 600 key.pem
 
 # Export GitHub environment variables
 ARG GITHUB_WEBHOOK_SECRET

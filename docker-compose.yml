@@ -6,7 +6,6 @@ services:
     build:
       context: .
       args:
-        APP_PRIVATE_KEY: ${APP_PRIVATE_KEY}
         GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET}
         GITHUB_API_SECRET: ${GITHUB_API_SECRET}
         GITHUB_APP_IDENTIFIER: ${GITHUB_APP_IDENTIFIER}
@@ -16,3 +15,4 @@ services:
       - "5000:5000"
     volumes:
       - ./scripts:/app/scripts
+      - ${APP_PRIVATE_KEY_PATH}:/app/key.pem

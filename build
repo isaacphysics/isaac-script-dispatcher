@@ -1,8 +1,0 @@
-#!/bin/bash
-
-set -e
-
-source .env
-export APP_PRIVATE_KEY="$(cat "$APP_PRIVATE_KEY_PATH")"
-
-docker-compose -f docker-compose.yml up --build
