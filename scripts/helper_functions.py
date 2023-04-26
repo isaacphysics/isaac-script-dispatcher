@@ -57,8 +57,10 @@ def setify(x: Iterable) -> list:
     return list(set(x))
 
 
-# Very naive - doesn't consider commas inside values
 def csv_list_to_str(xs):
+    """
+    Very naive - doesn't consider commas inside values
+    """
     return "\"" + ",".join(xs) + "\""
 
 
@@ -101,7 +103,7 @@ def isQuestion(content: dict):
 def build_dict_from_content(path_to_content: str, json_handler=None, filter_func=None, on_object_decoded=None, verbose=False):
     """
         Helper function for building a Python dictionary from data in the Isaac content repository. Functions in about
-        the same way as build_csv_from_content, but the
+        the same way as build_csv_from_content, but outputs a dictionary instead of a CSV file.
 
         See `cloze_questions_encoding.py` for a simple use case.
 

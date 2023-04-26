@@ -1,4 +1,5 @@
 import os
+import shutil
 import signal
 import subprocess
 import time
@@ -232,6 +233,11 @@ def github_issue_confirm_job(job_id, job):
         # Run the script
         logger("Script arguments complete, running script.")
         run_script_and_close_issue(job, job_id, token)
+        # Remove input files
+        logger("Script finished, removing any input files.")
+        input_dir = f"{INPUT_PATH}/{job_id}"
+        if os.path.exists(input_dir):
+            shutil.rmtree(input_dir)
 
 
 JOB_HANDLERS = {
