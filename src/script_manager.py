@@ -69,6 +69,11 @@ will flag them up as "broken".
         "description": "Lists all images in the content repository",
         "arguments": [],
         "type": "read"
+    },
+    "image_duplicates": {
+        "description": "Dedupe images in the content repository",
+        "arguments": [],
+        "type": "write"
     }
 }
 
