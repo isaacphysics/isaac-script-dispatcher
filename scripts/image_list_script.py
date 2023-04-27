@@ -18,7 +18,7 @@ if __name__ == '__main__':
             continue
         # Store the images and their full paths
         for file in files:
-            images.append((file, os.path.join(path, file)))
+            images.append((file, os.path.join(path.replace(content_path, ""), file)))
 
     # Write to a file
     if not os.path.exists(f"{OUT_DIR_PATH}/{args.job_id}"):
