@@ -111,14 +111,14 @@ def webhook():
     # Verify signature to ensure it's from GitHub
     request_signature = request.headers.get("X-Hub-Signature-256")
     if not request_signature or not verify_signature(request.data, request_signature):
-        return jsonify({"error": "Invalid signature"}), 403
+        return jsonify({"error": "Invalid signature"}), 200
 
     if not request.is_json:
-        return jsonify({"error": "Invalid request format"}), 400
+        return jsonify({"error": "Invalid request format"}), 200
 
     json = request.get_json()
     if "issue" not in json:
-        return jsonify({"error": "Invalid request format"}), 400
+        return jsonify({"error": "Invalid request format"}), 200
 
     # Debug logging
     # app.logger.info(json)
@@ -141,7 +141,7 @@ def webhook():
     elif json["action"] == "created":
         # Ignore comments that this bot
         if json["comment"]["user"]["login"] == "isaac-script-dispatcher[bot]":
-            return jsonify({"message": "Ignoring comment from this bot"})
+            return jsonify({"message": "Ignoring comment from this bot"}), 200
 
         # Find the job that corresponds to this issue
         job = get_job_by_issue_number(json["issue"]["number"])
@@ -175,10 +175,10 @@ def webhook():
                         "subject": "ada" if site == "Ada CS" else "phy",
                         "arguments": []
                     })
-            return jsonify({"message": "Webhook received, command processed"})
+            return jsonify({"message": "Webhook received, command processed"}), 200
 
         if not job:
-            return jsonify({"error": "Cannot find job with that issue number"}), 404
+            return jsonify({"error": "Cannot find job with that issue number"}), 200
 
         # FIXME should check for injection attacks here (see line 36 job_queue.py)
 
@@ -189,7 +189,7 @@ def webhook():
         script_info = SCRIPTS[job["script_name"]]
         argument_index = len(job["arguments"])
         if argument_index >= len(script_info["arguments"]):
-            return jsonify({"error": "Too many arguments"}), 400
+            return jsonify({"error": "Too many arguments"}), 200
 
         # Validation is done in the worker, so we don't need to do it here
         argument = json["comment"]["body"].strip("`\t\n ")
@@ -200,7 +200,7 @@ def webhook():
             "issue_status": "comment"
         })
 
-    return jsonify({"message": "Webhook received"})
+    return jsonify({"message": "Webhook received"}), 200
 
 
 # --- Error handling ---
