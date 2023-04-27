@@ -59,7 +59,7 @@ will flag them up as "broken".
                 "type": "file",
                 "file_type": "csv",
                 "title": "Image renaming specification",
-                "description": "A CSV file containing the old and new ids of images. Schema: `old_id,new_id`",
+                "description": "A CSV file containing the old filename and new name of images. Schema: `old_name.ext,new_name`",
                 "example": "bus_connections,ada_cs_arch_bus_connections"
             }
         ],

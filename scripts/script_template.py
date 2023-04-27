@@ -4,6 +4,18 @@ from arguments import base_parser
 from constants import OUT_DIR_PATH, CONTENT_PATH_MAP
 from helper_functions import build_csv_from_content, modify_content, value_or_default
 
+"""
+! IMPORTANT !
+
+When you add a new script, you must:
+- Ensure the filename is {unique script name}_script.py
+- Make sure that the script throws informative errors, if for example it is being run for the wrong subject
+- Add a new entry to the SCRIPTS dictionary in script_manager.py, with the key being "{unique script name}" 
+    (i.e. without the "_script" suffix)
+- Add {unique script name} to the list in script-run.yml file in isaacphysics/isaac-dispatched-scripts
+- (Optional but preferred) Add an entry to the README.md file in isaacphysics/isaac-dispatched-scripts explaining
+    what the script does 
+"""
 
 # Example of a function that reads from content and produces a CSV file
 def read_from_content_example(content_path, args):
