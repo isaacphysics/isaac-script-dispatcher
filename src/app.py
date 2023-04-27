@@ -106,7 +106,7 @@ def log():
 # The only one that really matters, the rest are just for testing and admin purposes. This should be the only one
 # that's exposed to the internet.
 
-@app.route('/webhook', methods=['POST'])
+@app.route('/github-callback', methods=['POST'])
 def webhook():
     # Verify signature to ensure it's from GitHub
     request_signature = request.headers.get("X-Hub-Signature-256")
