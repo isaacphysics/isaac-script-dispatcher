@@ -10,6 +10,7 @@ from helper_functions import build_csv_from_content, modify_content, value_or_de
 When you add a new script, you must:
 - Ensure the filename is {unique script name}_script.py
 - Make sure that the script throws informative errors, if for example it is being run for the wrong subject
+- Write any output files to the f"{OUT_DIR_PATH}/{args.job_id}" directory so the worker can pick them up afterwards
 - Add a new entry to the SCRIPTS dictionary in script_manager.py, with the key being "{unique script name}" 
     (i.e. without the "_script" suffix)
 - Add {unique script name} to the list in script-run.yml file in isaacphysics/isaac-dispatched-scripts

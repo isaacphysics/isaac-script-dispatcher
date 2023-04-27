@@ -10,11 +10,9 @@ services:
         GITHUB_API_SECRET: ${GITHUB_API_SECRET}
         GITHUB_APP_IDENTIFIER: ${GITHUB_APP_IDENTIFIER}
         GITHUB_INSTALLATION_ID: ${GITHUB_INSTALLATION_ID}
+    restart: always
+    ports:
+      - "5000:5000"
     volumes:
       - ./scripts:/app/scripts
       - ${APP_PRIVATE_KEY_PATH}:/app/key.pem
-    restart: always
-networks:
-  default:
-    external:
-      name: isaac
