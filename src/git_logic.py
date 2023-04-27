@@ -178,27 +178,13 @@ def update_repo(repo_path, logger=lambda x: None):
             return {"success": True, "message": "No changes"}
 
         logger(f"Changes in repo: {repo_path}, pulling... (changes: {result.stdout[:100]}{'' if len(result.stdout) < 100 else '...'})")
-        # Pull changes from remote, only from master with depth 1
+        # Pull changes from remote
         result = subprocess.run(
-            ["git", "-C", repo_path, "pull", "origin", "master", "--depth=1"],
+            ["git", "-C", repo_path, "pull", "origin", "master"],
             capture_output=True,
             check=True,
             text=True,
         )
-        # # If there are changes, fetch them
-        # subprocess.run(
-        #     ["git", "-C", repo_path, "fetch", "origin", "master"],
-        #     capture_output=True,
-        #     check=True,
-        #     text=True,
-        # )
-        # # Then merge them
-        # result = subprocess.run(
-        #     ["git", "-C", repo_path, "merge", "origin/master"],
-        #     capture_output=True,
-        #     check=True,
-        #     text=True,
-        # )
         return {"success": True, "message": result.stdout}
     except subprocess.CalledProcessError as e:
         return {"success": False, "message": e.stderr}

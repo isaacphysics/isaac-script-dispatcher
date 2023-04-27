@@ -17,7 +17,8 @@ class PushChangesStatus:
     SUCCESS = "SUCCESS"
     FAILED = "FAILED"
 
-SCRIPTS_PATH = r"./scripts"
+SCRIPTS_PATH = r"./data/isaac-scripts"
+SCRIPT_DISPATCHER_SCRIPTS_SUBDIR = f"{SCRIPTS_PATH}/script-dispatcher"
 DATA_PATH = r"./data"
 PHY_DATA_PATH = r"./data/rutherford-content"
 CS_DATA_PATH = r"./data/ada-content"
@@ -36,6 +37,7 @@ CONTENT_REPO_PATH_MAP = {
     "phy": r"isaacphysics/rutherford-content",
     "ada": r"isaacphysics/ada-content"
 }
+SCRIPTS_REPO_PATH = r"isaacphysics/isaac-scripts"
 
 BOT_USERNAME = "isaac-script-dispatcher[bot]"
 BOT_EMAIL = "129531963+isaac-script-dispatcher[bot]@users.noreply.github.com"

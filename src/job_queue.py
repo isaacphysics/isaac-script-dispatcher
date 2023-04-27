@@ -10,7 +10,7 @@ import requests
 from db_logic import get_next_job, update_job_status
 from constants import *
 from git_logic import new_branch_and_push_changes, pull_repos, get_github_token, add_reaction_to_issue, \
-    add_comment_to_issue, upload_file_to_github, create_pull_request, download_and_save_file
+    add_comment_to_issue, upload_file_to_github, create_pull_request, download_and_save_file, clone_if_needed
 from script_manager import SCRIPTS, GOOGLE_DOC_PUBLISH_HOW_TO
 
 
@@ -30,13 +30,13 @@ def comment(token, job_id, issue_number, message):
 
 
 def run_python_script(script_name, job_id, subject, args):
-    if not os.path.exists(f"{SCRIPTS_PATH}/{script_name}_script.py"):
+    if not os.path.exists(f"{SCRIPT_DISPATCHER_SCRIPTS_SUBDIR}/{script_name}_script.py"):
         return {"error": f"Script `{script_name}` does not exist"}
 
     try:
         result = subprocess.run(
             [
-                "python", f"{SCRIPTS_PATH}/{script_name}_script.py", "-j", job_id, "--subject", subject, *args
+                "python", f"{SCRIPT_DISPATCHER_SCRIPTS_SUBDIR}/{script_name}_script.py", "-j", job_id, "--subject", subject, *args
             ],
             capture_output=True,
             check=True,
@@ -250,8 +250,9 @@ JOB_HANDLERS = {
 def process_job_queue():
     killer = GracefulKiller()
     logger("Starting up...")
-    # Get a GitHub token and pull the content repos on startup
+    # Get a GitHub token and pull the script and content repos on startup
     token = get_github_token(logger=logger)
+    clone_if_needed(SCRIPTS_PATH, SCRIPTS_REPO_PATH, token, logger=logger)
     pull_repos(token, logger=logger)
     logger("Starting job queue processing loop.")
     while not killer.kill_now:

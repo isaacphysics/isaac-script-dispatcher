@@ -11,8 +11,7 @@ services:
         GITHUB_APP_IDENTIFIER: ${GITHUB_APP_IDENTIFIER}
         GITHUB_INSTALLATION_ID: ${GITHUB_INSTALLATION_ID}
     volumes:
-      - ./scripts:/app/scripts
-      - ${APP_PRIVATE_KEY_PATH}:/app/key.pem
+      - ${APP_PRIVATE_KEY_PATH}:/app/key.pem:ro
     restart: always
 networks:
   default:
