@@ -74,6 +74,20 @@ will flag them up as "broken".
         "description": "Dedupe images in the content repository",
         "arguments": [],
         "type": "write"
+    },
+    "image_attribution": {
+        "description": "Applies attribution to images in the content repository",
+        "arguments": [
+            {
+                "param": "csv",
+                "type": "file",
+                "file_type": "csv",
+                "title": "Image attribution specification",
+                "description": "A CSV file containing image file names, and the attribution that should be applied. The first row will be ignored (we assume it is a header). Schema: `image_name.ext,[attribution string]`",
+                "example": "ada_cs_arch_embed_smartwatch.jpg,[Pixabay](https://pixabay.com/photos/smartwatch-technology-smart-watch-1736683/)"
+            }
+        ],
+        "type": "write"
     }
 }
 
