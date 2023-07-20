@@ -252,6 +252,7 @@ def process_job_queue():
     logger("Starting up...")
     # Get a GitHub token and pull the script and content repos on startup
     token = get_github_token(logger=logger)
+    clone_if_needed(SCRIPTS_PATH, SCRIPTS_REPO_PATH, token, logger=logger)
     pull_repos(token, logger=logger)
     logger("Starting job queue processing loop.")
     while not killer.kill_now:

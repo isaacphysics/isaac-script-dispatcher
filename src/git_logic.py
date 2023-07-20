@@ -213,10 +213,6 @@ def clone_if_needed(repo_path, repo_url, token, logger=lambda x: None):
 
 
 def pull_repos(token, logger=lambda x: None):
-    clone_if_needed(SCRIPTS_PATH, SCRIPTS_REPO_PATH, token, logger=logger)
-    logger(f"Checking out master in {SCRIPTS_REPO_PATH}...")
-    checkout_master(SCRIPTS_REPO_PATH)
-    update_repo(SCRIPTS_REPO_PATH, logger=logger)
     clone_if_needed(PHY_DATA_PATH, CONTENT_REPO_PATH_MAP["phy"], token, logger=logger)
     logger(f"Checking out master in {PHY_DATA_PATH}...")
     checkout_master(PHY_DATA_PATH)
