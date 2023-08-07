@@ -88,6 +88,11 @@ will flag them up as "broken".
             }
         ],
         "type": "write"
+    },
+    "question_list": {
+        "description": "Gives detailed data about all questions in the content repository",
+        "arguments": [],
+        "type": "read"
     }
 }
 
