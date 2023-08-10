@@ -165,7 +165,16 @@ def update_repo_origin(repo_path, repo_url, token):
 
 def update_repo(repo_path, logger=lambda x: None):
     try:
-        # First diff the local repo against the remote to see if there are any changes
+        # Fetch the remote to check for changes:
+        logger(f"Fetching updates in repo: {repo_path}")
+        result = subprocess.run(
+            ["git","-C", repo_path, "fetch"],
+            capture_output=True,
+            check=True,
+            text=True,
+        )
+
+        # diff the local repo against the remote to see if there are any changes
         logger(f"Checking for changes in repo: {repo_path}")
         result = subprocess.run(
             ["git", "-C", repo_path, "diff", "master", "origin/master"],
@@ -187,6 +196,7 @@ def update_repo(repo_path, logger=lambda x: None):
         )
         return {"success": True, "message": result.stdout}
     except subprocess.CalledProcessError as e:
+        logger("Fatal error updating repo: " + str(e))
         return {"success": False, "message": e.stderr}
 
 
