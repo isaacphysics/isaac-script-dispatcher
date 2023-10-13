@@ -54,6 +54,7 @@ def get_github_token(logger=(lambda x: None)):
         save_token(token["token"], time.time(), dateutil.parser.isoparse(token["expires_at"]).timestamp())
         logger(f"Got new token: {token}")
         # Go though each repo and update the origin using the new token
+        update_repo_origin(SCRIPTS_PATH, SCRIPTS_REPO_PATH, token["token"])
         update_repo_origin(PHY_DATA_PATH, CONTENT_REPO_PATH_MAP["phy"], token["token"])
         update_repo_origin(CS_DATA_PATH, CONTENT_REPO_PATH_MAP["ada"], token["token"])
         return token["token"]
@@ -231,6 +232,9 @@ def pull_repos(token, logger=lambda x: None):
     logger(f"Checking out master in {CS_DATA_PATH}...")
     checkout_master(CS_DATA_PATH)
     update_repo(CS_DATA_PATH, logger=logger)
+    # Also update script repo:
+    logger("Updating scripts repo")
+    update_repo(SCRIPTS_PATH, logger=logger)
 
 
 def checkout_master(repo_path):
