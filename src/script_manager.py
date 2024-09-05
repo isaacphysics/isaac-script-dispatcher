@@ -93,6 +93,16 @@ will flag them up as "broken".
         "description": "Gives detailed data about all questions in the content repository",
         "arguments": [],
         "type": "read"
+    },
+    "topics_concepts": {
+        "description": "Gives detailed data about all topic and concept pages in the content repository",
+        "arguments": [],
+        "type": "read"
+    },
+    "topics_accordions": {
+        "description": "Gives detailed data about all accordion sections on topic pages in the content repository",
+        "arguments": [],
+        "type": "read"
     }
 }
 
