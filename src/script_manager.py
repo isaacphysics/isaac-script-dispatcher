@@ -103,6 +103,11 @@ will flag them up as "broken".
         "description": "Gives detailed data about all accordion sections on topic pages in the content repository",
         "arguments": [],
         "type": "read"
+    },
+    "glossary_terms": {
+        "description": "Gives data about all glossary terms in the content repository",
+        "arguments": [],
+        "type": "read"
     }
 }
 
