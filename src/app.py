@@ -20,7 +20,7 @@ app = Flask(__name__)
 
 def validate_job_id(job_id: str):
     # UUID v4 regex, see https://stackoverflow.com/a/13653180
-    return job_id and re.match("[0-9a-f]{8}\-[0-9a-f]{4}\-4[0-9a-f]{3}\-[89ab][0-9a-f]{3}\-[0-9a-f]{12}", job_id)
+    return job_id and re.match(r"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}", job_id)
 
 
 def validate_script_name(script_name: str):
