@@ -14,7 +14,7 @@ This is really useful if a script makes many changes to the content, as the diff
 
 ## Deployment
 
-Re-build and deploy with `docker-compose up -d --build`. For local development, the script dispatcher runs on port 5000.
+Re-build and deploy with `docker compose up -d --build`. For local development, the script dispatcher runs on port 5000.
 
 ## How to add new scripts
 
